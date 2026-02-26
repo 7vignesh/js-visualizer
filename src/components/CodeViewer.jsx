@@ -2,35 +2,33 @@ import { useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 function tokenizeLine(line) {
-  const keywords = /\b(const|let|var|function|return|if|else|for|while|new|async|await|typeof|class|this|true|false|null|undefined|import|export|default|break|continue|of|in)\b/g;
-  const strings = /(["'`])(?:(?!\1)[^\\]|\\.)*\1/g;
-  const numbers = /\b\d+(\.\d+)?\b/g;
-  const comments = /\/\/.*/g;
-  const functions = /\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*(?=\()/g;
-
-  // Simple tokenizer: we build an array of {text, type}
-  const tokens = [];
-  let remaining = line;
-  let pos = 0;
-
-  // We'll do a simplified pass: just return the line with HTML
+  // We'll do a simplified pass: return the line with HTML spans
   let html = line
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
-  // Apply in order: comments first (highest priority)
+  // 1. Comments (highest priority)
   html = html.replace(/(\/\/.*)/g, '<span class="tok-comment">$1</span>');
-  // Strings
+  // 2. Strings
   html = html.replace(/(["'`][^"'`\n]*["'`])/g, '<span class="tok-string">$1</span>');
-  // Keywords (only outside of spans)
-  html = html.replace(/\b(const|let|var|function|return|if|else|for|while|new|async|await|typeof|class|this|true|false|null|undefined|import|export|default|break|continue|of|in)\b/g,
+  // 3. TS/JS keywords (expanded for TypeScript)
+  html = html.replace(/\b(const|let|var|function|return|if|else|for|while|new|async|await|typeof|class|this|true|false|null|undefined|import|export|default|break|continue|of|in|interface|type|enum|namespace|implements|extends|abstract|readonly|declare|keyof|infer|is|as|satisfies|public|private|protected|static|override|get|set|switch|case|try|catch|finally|throw|void|never|unknown|any)\b/g,
     (m) => `<span class="tok-keyword">${m}</span>`);
-  // Numbers
+  // 4. Type annotations after colon (:  SomeType)
+  html = html.replace(/:\s*([A-Z][a-zA-Z0-9_]*(?:&lt;[^&]*&gt;)?)/g,
+    (m, type) => `: <span class="tok-type">${type}</span>`);
+  // 5. Numbers
   html = html.replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="tok-number">$1</span>');
-  // Function names (before parens)
+  // 6. Known type names at start of generic or after extends/implements
+  html = html.replace(/\b(string|number|boolean|void|never|unknown|any|object|Array|Promise|Record|Partial|Required|Readonly|Pick|Omit|Exclude|Extract|Map|Set)\b/g,
+    '<span class="tok-type">$1</span>');
+  // 7. Function names (before parens)
   html = html.replace(/\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*(?=\()/g,
     (m, name) => `<span class="tok-function">${name}</span>(`);
+  // 8. Decorators
+  html = html.replace(/@([a-zA-Z_$][a-zA-Z0-9_$]*)/g,
+    '<span class="tok-decorator">@$1</span>');
 
   return html;
 }
@@ -51,7 +49,7 @@ export function CodeViewer({ code = '', highlightLines = [], currentLine = null 
         <div className="code-dots">
           <span className="dot red" /><span className="dot yellow" /><span className="dot green" />
         </div>
-        <span className="code-title">script.js</span>
+        <span className="code-title">script.tsx</span>
       </div>
       <div className="code-body">
         {lines.map((line, i) => {

@@ -90,4 +90,63 @@ console.log("After async call");`
 const result = outer();
 console.log("Final:", result);`
   },
+  {
+    label: 'TS: Types & Interfaces',
+    lang: 'ts',
+    code: `interface User {
+  name: string;
+  age: number;
+}
+
+function greetUser(user: User): string {
+  const msg = "Hello, " + user.name + "! Age: " + user.age;
+  console.log(msg);
+  return msg;
+}
+
+const alice: User = { name: "Alice", age: 30 };
+const result = greetUser(alice);
+console.log("Returned:", result);`
+  },
+  {
+    label: 'TS: Enum & Generics',
+    lang: 'ts',
+    code: `enum Direction {
+  Up,
+  Down,
+  Left,
+  Right
+}
+
+function identity<T>(value: T): T {
+  console.log("identity called with:", value);
+  return value;
+}
+
+const dir = identity(Direction.Up);
+console.log("Direction:", dir);
+
+const name = identity("TypeScript");
+console.log("Name:", name);`
+  },
+  {
+    label: 'TS: Type Alias & Assertion',
+    lang: 'ts',
+    code: `type StringOrNumber = string | number;
+
+function double(x: StringOrNumber): StringOrNumber {
+  if (typeof x === "number") {
+    const result = x * 2;
+    console.log("Doubled number:", result);
+    return result;
+  }
+  const result = x + x;
+  console.log("Doubled string:", result);
+  return result;
+}
+
+const a = double(21);
+const b = double("ha");
+console.log("a =", a, "b =", b);`
+  },
 ];

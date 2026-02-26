@@ -140,6 +140,23 @@ body {
   border-color: rgba(129,140,248,0.4);
 }
 
+.ts-pill.active {
+  background: rgba(34,211,238,0.15);
+  color: var(--accent-cyan);
+  border-color: rgba(34,211,238,0.4);
+}
+
+.ts-label {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(34,211,238,0.2);
+  color: var(--accent-cyan);
+  margin-right: 2px;
+  letter-spacing: 0.03em;
+}
+
 .shortcut-hint {
   font-size: 11px;
   color: var(--text-muted);
@@ -783,7 +800,9 @@ body {
 .tok-string   { color: #c3e88d; }
 .tok-number   { color: #f78c6c; }
 .tok-comment  { color: #546e7a; font-style: italic; }
-.tok-function { color: #82aaff; }
+.tok-function  { color: #82aaff; }
+.tok-type      { color: #ffcb6b; font-style: italic; }
+.tok-decorator { color: #c792ea; }
 
 /* ─── Console ───────────────────────────────────────────────────────────── */
 .console-panel { min-height: 0; }

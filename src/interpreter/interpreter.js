@@ -317,6 +317,100 @@ export function interpret(code) {
         return last;
       }
 
+      // ── TypeScript-specific nodes ─────────────────────────────────────────
+      case 'TSTypeAnnotation':
+      case 'TSTypeReference':
+      case 'TSStringKeyword':
+      case 'TSNumberKeyword':
+      case 'TSBooleanKeyword':
+      case 'TSAnyKeyword':
+      case 'TSVoidKeyword':
+      case 'TSNullKeyword':
+      case 'TSUndefinedKeyword':
+      case 'TSNeverKeyword':
+      case 'TSUnknownKeyword':
+      case 'TSObjectKeyword':
+      case 'TSArrayType':
+      case 'TSUnionType':
+      case 'TSIntersectionType':
+      case 'TSTupleType':
+      case 'TSTypeParameterDeclaration':
+      case 'TSTypeParameterInstantiation':
+      case 'TSTypeParameter':
+      case 'TSPropertySignature':
+      case 'TSMethodSignature':
+      case 'TSQualifiedName':
+      case 'TSLiteralType':
+      case 'TSFunctionType':
+      case 'TSTypeLiteral':
+      case 'TSParenthesizedType':
+      case 'TSConditionalType':
+      case 'TSIndexedAccessType':
+      case 'TSMappedType':
+        // Type-only nodes: skip at runtime
+        return undefined;
+
+      case 'TSAsExpression':
+      case 'TSSatisfiesExpression':
+      case 'TSNonNullExpression':
+      case 'TSTypeAssertion':
+        // "expr as Type" / "expr satisfies Type" / "expr!" — evaluate inner
+        return evaluate(node.expression, env);
+
+      case 'TSInterfaceDeclaration': {
+        snap(`interface ${node.id.name} declared (type-only, erased at runtime)`);
+        return undefined;
+      }
+
+      case 'TSTypeAliasDeclaration': {
+        snap(`type ${node.id.name} declared (type-only, erased at runtime)`);
+        return undefined;
+      }
+
+      case 'TSEnumDeclaration': {
+        const enumObj = {};
+        let autoVal = 0;
+        for (const member of node.members) {
+          const key = member.id.type === 'Identifier' ? member.id.name : member.id.value;
+          if (member.initializer) {
+            const v = evaluate(member.initializer, env);
+            enumObj[key] = v;
+            autoVal = typeof v === 'number' ? v + 1 : autoVal;
+          } else {
+            enumObj[key] = autoVal++;
+          }
+          // Reverse mapping for numeric enums
+          if (typeof enumObj[key] === 'number') {
+            enumObj[enumObj[key]] = key;
+          }
+        }
+        env.define(node.id.name, enumObj);
+        snap(`enum ${node.id.name} defined`);
+        return undefined;
+      }
+
+      case 'TSModuleDeclaration': {
+        // namespace / module — evaluate the body
+        if (node.body) evaluate(node.body, env);
+        return undefined;
+      }
+
+      case 'TSModuleBlock': {
+        for (const stmt of node.body) evaluate(stmt, env);
+        return undefined;
+      }
+
+      case 'TSExportAssignment':
+        return evaluate(node.expression, env);
+
+      case 'TSParameterProperty': {
+        // class constructor parameter property: public x: number
+        const param = node.parameter;
+        if (param.type === 'Identifier') return param.name;
+        if (param.type === 'AssignmentPattern' && param.left.type === 'Identifier') return param.left.name;
+        return undefined;
+      }
+
       default:
         return undefined;
     }
@@ -333,9 +427,18 @@ export function interpret(code) {
       params.forEach((p, i) => {
         if (p.type === 'Identifier') funcEnv.define(p.name, args[i]);
         else if (p.type === 'AssignmentPattern') {
-          funcEnv.define(p.left.name, args[i] !== undefined ? args[i] : evaluate(p.right, closureEnv));
+          const paramName = p.left.type === 'Identifier' ? p.left.name : p.left.left?.name;
+          if (paramName) funcEnv.define(paramName, args[i] !== undefined ? args[i] : evaluate(p.right, closureEnv));
         } else if (p.type === 'RestElement') {
-          funcEnv.define(p.argument.name, args.slice(i));
+          const restName = p.argument.type === 'Identifier' ? p.argument.name : p.argument.left?.name;
+          if (restName) funcEnv.define(restName, args.slice(i));
+        } else if (p.type === 'TSParameterProperty') {
+          // class constructor shorthand: constructor(public x: number)
+          const inner = p.parameter;
+          if (inner.type === 'Identifier') funcEnv.define(inner.name, args[i]);
+          else if (inner.type === 'AssignmentPattern' && inner.left.type === 'Identifier') {
+            funcEnv.define(inner.left.name, args[i] !== undefined ? args[i] : evaluate(inner.right, closureEnv));
+          }
         }
       });
 
@@ -598,7 +701,7 @@ export function interpret(code) {
   try {
     ast = parser.parse(code, {
       sourceType: 'module',
-      plugins: ['jsx', 'asyncGenerators', 'classProperties', 'optionalChaining', 'nullishCoalescingOperator'],
+      plugins: ['jsx', 'typescript', 'asyncGenerators', 'classProperties', 'optionalChaining', 'nullishCoalescingOperator', 'decorators-legacy'],
       errorRecovery: true,
     });
   } catch (e) {

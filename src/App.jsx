@@ -103,7 +103,7 @@ export default function App() {
         <div className="header-left">
           <div className="logo">
             <Sparkles size={20} className="logo-icon" />
-            <span className="logo-text">JS Visualizer</span>
+            <span className="logo-text">JS / TS Visualizer</span>
             <span className="logo-badge">v2</span>
           </div>
           <div className="sample-pills">
@@ -111,8 +111,9 @@ export default function App() {
               <button
                 key={i}
                 onClick={() => loadSample(i)}
-                className={`sample-pill ${selectedSample === i ? 'active' : ''}`}
+                className={`sample-pill ${selectedSample === i ? 'active' : ''} ${s.lang === 'ts' ? 'ts-pill' : ''}`}
               >
+                {s.lang === 'ts' && <span className="ts-label">TS</span>}
                 {s.label}
               </button>
             ))}
@@ -173,11 +174,12 @@ export default function App() {
                 <div className="splash-icon">
                   <Sparkles size={48} />
                 </div>
-                <h1>JavaScript Execution Visualizer</h1>
+                <h1>JavaScript &amp; TypeScript Visualizer</h1>
                 <p>
-                  Paste any JavaScript in the editor, pick a sample, then click&nbsp;
-                  <strong>Run</strong> to watch the Call Stack, Web APIs, Task Queue,
-                  Microtask Queue and Event Loop animate step by step.
+                  Paste any <strong>JavaScript</strong> or <strong>TypeScript</strong> code in the editor,
+                  pick a sample, then click <strong>Run</strong> to watch the Call Stack, Web APIs,
+                  Task Queue, Microtask Queue and Event Loop animate step by step.
+                  TypeScript types, interfaces and enums are fully supported.
                 </p>
                 <button className="splash-run-btn" onClick={handleRun}>
                   <Play size={18} />
