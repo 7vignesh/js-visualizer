@@ -1,5 +1,6 @@
-import { useMemo, useRef, useEffect } from 'react';
+import { useMemo, useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { inferTypes, detectTypeErrors } from '../utils/typeInference';
 
 function tokenizeLine(line) {
   // We'll do a simplified pass: return the line with HTML spans
@@ -11,7 +12,7 @@ function tokenizeLine(line) {
   // 1. Comments (highest priority)
   html = html.replace(/(\/\/.*)/g, '<span class="tok-comment">$1</span>');
   // 2. Strings
-  html = html.replace(/(["'`][^"'`\n]*["'`])/g, '<span class="tok-string">$1</span>');
+  html = html.replace(/(['"`][^'"`\n]*['"`])/g, '<span class="tok-string">$1</span>');
   // 3. TS/JS keywords (expanded for TypeScript)
   html = html.replace(/\b(const|let|var|function|return|if|else|for|while|new|async|await|typeof|class|this|true|false|null|undefined|import|export|default|break|continue|of|in|interface|type|enum|namespace|implements|extends|abstract|readonly|declare|keyof|infer|is|as|satisfies|public|private|protected|static|override|get|set|switch|case|try|catch|finally|throw|void|never|unknown|any)\b/g,
     (m) => `<span class="tok-keyword">${m}</span>`);
@@ -33,9 +34,46 @@ function tokenizeLine(line) {
   return html;
 }
 
+function TypeAnnotationBadge({ types }) {
+  if (!types || types.length === 0) return null;
+  
+  return (
+    <span className="type-annotation-badge">
+      {types.map((t, i) => (
+        <span key={i} className="type-badge-item">
+          <span className="type-symbol">{t.symbol}</span>: <span className="type-value">{t.type}</span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function ErrorIndicator({ error }) {
+  if (!error) return null;
+  
+  return (
+    <span 
+      className="error-indicator" 
+      title={error.message}
+    >
+      ⚠️
+    </span>
+  );
+}
+
 export function CodeViewer({ code = '', highlightLines = [], currentLine = null }) {
   const lines = useMemo(() => code.split('\n'), [code]);
   const activeRef = useRef(null);
+  const [typeMap, setTypeMap] = useState(new Map());
+  const [errors, setErrors] = useState([]);
+  const [hoveredLine, setHoveredLine] = useState(null);
+
+  useEffect(() => {
+    const types = inferTypes(code);
+    setTypeMap(types);
+    const typeErrors = detectTypeErrors(code);
+    setErrors(typeErrors);
+  }, [code]);
 
   useEffect(() => { 
     if (activeRef.current) {
@@ -56,12 +94,16 @@ export function CodeViewer({ code = '', highlightLines = [], currentLine = null 
           const lineNum = i + 1;
           const isActive = lineNum === currentLine;
           const isHighlighted = highlightLines.includes(lineNum);
+          const lineTypes = typeMap.get(lineNum);
+          const lineError = errors.find(e => e.line === lineNum);
 
           return (
             <div
               key={i}
               ref={isActive ? activeRef : null}
-              className={`code-line ${isActive ? 'code-line-active' : ''} ${isHighlighted && !isActive ? 'code-line-highlight' : ''}`}
+              className={`code-line ${isActive ? 'code-line-active' : ''} ${isHighlighted && !isActive ? 'code-line-highlight' : ''} ${lineError ? 'code-line-error' : ''}`}
+              onMouseEnter={() => setHoveredLine(lineNum)}
+              onMouseLeave={() => setHoveredLine(null)}
             >
               {isActive && (
                 <motion.div
@@ -71,11 +113,38 @@ export function CodeViewer({ code = '', highlightLines = [], currentLine = null 
                   transition={{ type: 'spring', stiffness: 500, damping: 40 }}
                 />
               )}
-              <span className="line-num">{lineNum}</span>
+              <span className="line-num">
+                {lineNum}
+                {lineError && <ErrorIndicator error={lineError} />}
+              </span>
               <span
                 className="line-content"
                 dangerouslySetInnerHTML={{ __html: tokenizeLine(line) || '&nbsp;' }}
               />
+              <AnimatePresence>
+                {hoveredLine === lineNum && lineTypes && (
+                  <motion.div
+                    className="type-annotation-tooltip"
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <TypeAnnotationBadge types={lineTypes} />
+                  </motion.div>
+                )}
+                {hoveredLine === lineNum && lineError && (
+                  <motion.div
+                    className="error-annotation-tooltip"
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    {lineError.message}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           );
         })}

@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play, SkipBack, SkipForward, ChevronLeft, ChevronRight,
-  Pause, RotateCcw, Code2, Sparkles
+  Pause, RotateCcw, Code2, Sparkles, Moon, Sun
 } from 'lucide-react';
 import { interpret } from './interpreter/interpreter';
 import { CallStack } from './components/CallStack';
@@ -26,6 +26,10 @@ export default function App() {
   const [selectedSample, setSelectedSample] = useState(2);
   const autoRef = useRef(null);
   const [hasRun, setHasRun] = useState(false);
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem('visualizer-theme');
+    return saved || 'dark';
+  });
 
   const currentStep = steps[stepIndex] ?? null;
   const isFirstStep = stepIndex === 0;
@@ -78,6 +82,21 @@ export default function App() {
     return () => clearInterval(autoRef.current);
   }, [autoPlay, isRunning, steps.length, autoSpeed]);
 
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    localStorage.setItem('visualizer-theme', newTheme);
+    document.documentElement.classList.toggle('light', newTheme === 'light');
+  };
+
+  useEffect(() => {
+    if (theme === 'light') {
+      document.documentElement.classList.add('light');
+    } else {
+      document.documentElement.classList.remove('light');
+    }
+  }, [theme]);
+
   useEffect(() => {
     const handler = (e) => {
       if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
@@ -121,6 +140,13 @@ export default function App() {
         </div>
         <div className="header-right">
           <span className="shortcut-hint">← → navigate · Space play/pause</span>
+          <button
+            className="toggle-theme-btn"
+            onClick={toggleTheme}
+            title="Toggle theme"
+          >
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
           <button
             className={`toggle-editor-btn ${showEditor ? 'active' : ''}`}
             onClick={() => setShowEditor(p => !p)}
